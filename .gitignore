@@ -2,6 +2,7 @@
 claude_desktop_config.egg-info/
 docs/source/**/index.md
 tmp/
+claude_desktop_config.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

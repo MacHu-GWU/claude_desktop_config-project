@@ -50,7 +50,7 @@ Welcome to ``claude_desktop_config`` Documentation
 .. image:: https://claude-desktop-config.readthedocs.io/en/latest/_static/claude_desktop_config-logo.png
     :target: https://claude-desktop-config.readthedocs.io/en/latest/
 
-Documentation for ``claude_desktop_config``.
+This is a project allows to manage ``claude_desktop_config.json`` file programmatically.
 
 
 .. _install:
