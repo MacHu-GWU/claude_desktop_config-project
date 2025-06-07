@@ -155,23 +155,19 @@ class BaseMcpEnum(enum.Enum):
         config = cdc.read()
         flag_list = list()
         for mcp_enum in cls:
-            print(mcp_enum, mcp_enum.name, mcp_enum in wanted_mcps)
             if mcp_enum in wanted_mcps:
-                print(f"Enabling MCP: {mcp_enum.value.name}")  # for debug only
                 flag = enable_mcp_server(
                     config,
                     name=mcp_enum.value.name,
                     settings=mcp_enum.value.settings,
                 )
             else:
-                print(f"Disabling MCP: {mcp_enum.value.name}")  # for debug only
                 flag = disable_mcp_server(
                     config,
                     name=mcp_enum.value.name,
                 )
 
             flag_list.append(flag)
-            print(config)
 
         if any(flag_list):
             cdc.write(config)
