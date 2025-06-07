@@ -2,10 +2,24 @@
 
 import typing as T
 import json
+import enum
 import dataclasses
 from pathlib import Path
 
 from .os_platform import IS_WINDOWS, IS_MACOS, IS_LINUX
+
+
+@dataclasses.dataclass
+class Mcp:
+    """
+    Represents a Model Context Protocol (MCP) server configuration.
+
+    :param name: The name of the MCP server.
+    :param settings: The settings for the MCP server, typically including command and arguments.
+    """
+
+    name: str = dataclasses.field()
+    settings: dict[str, T.Any] = dataclasses.field()
 
 
 def get_default_claude_desktop_config_path() -> Path:  # pragma: no cover
@@ -44,6 +58,60 @@ def get_default_claude_desktop_config_path() -> Path:  # pragma: no cover
         raise OSError("Unsupported operating system")
 
 
+def enable_mcp_server(
+    config: dict[str, T.Any],
+    name: str,
+    settings: dict[str, T.Any],
+) -> bool:
+    """
+    Enable an MCP server by setting its configuration in the provided dictionary.
+
+    This is an idempotent operation - no error if the server already exists with the same settings.
+
+    :param config: The configuration dictionary to modify.
+    :param name: The name of the MCP server.
+    :param settings: The settings for the MCP server.
+
+    :return: True if the configuration was changed, False if it was unchanged.
+    """
+    if "mcpServers" not in config:
+        config["mcpServers"] = {
+            name: settings,
+        }
+        return True
+
+    if name in config["mcpServers"]:
+        existing_settings = config["mcpServers"][name]
+        if existing_settings == settings:
+            return False
+        else:
+            config["mcpServers"][name] = settings
+            return True
+    else:
+        config["mcpServers"][name] = settings
+        return True
+
+
+def disable_mcp_server(
+    config: dict[str, T.Any],
+    name: str,
+) -> bool:
+    """
+    Remove an MCP server by deleting its entry from the provided configuration dictionary.
+
+    This is an idempotent operation - no error if the server doesn't exist.
+
+    :param config: The configuration dictionary to modify.
+    :param name: The name of the MCP server to remove.
+
+    :return: True if the configuration was changed, False if it was unchanged.
+    """
+    if "mcpServers" in config and name in config["mcpServers"]:
+        del config["mcpServers"][name]
+        return True
+    return False
+
+
 @dataclasses.dataclass
 class ClaudeDesktopConfig:
     path: Path = dataclasses.field(default=get_default_claude_desktop_config_path())
@@ -60,63 +128,52 @@ class ClaudeDesktopConfig:
         """
         self.path.write_text(json.dumps(config, indent=4), encoding="utf-8")
 
-    def put_mcp_server(
-        self,
-        name: str,
-        settings: dict[str, T.Any],
-    ):
+
+@dataclasses.dataclass
+class Mcp:
+    name: str = dataclasses.field()
+    settings: dict[str, T.Any] = dataclasses.field()
+
+
+class BaseMcpEnum(enum.Enum):
+    @classmethod
+    def apply(
+        cls,
+        wanted_mcps: T.Union[set["BaseMcpEnum"], list["BaseMcpEnum"]],
+        cdc: ClaudeDesktopConfig,
+    ) -> bool:
         """
-        Sample config::
+        Apply the MCP configuration to the Claude Desktop Config.
 
-            {
-                "mcpServers": {
-                    "your_mcp_server_name": {
-                        "command": "npx",
-                        "args": [
-                            "-y",
-                            "mcp-remote",
-                            "https://your-mcp-server.com/sse"
-                        ]
-                    }
-                }
-            }
+        This method should be overridden by subclasses to define Mcp Enumerations.
+
+        :param wanted_mcps: A set of MCPs that should be enabled.
+        :param cdc: An instance of ClaudeDesktopConfig to read and write the configuration.
+
+        :return: True if the configuration was changed, False if it was unchanged.
         """
-        config = self.read()
-        is_changed = False
-
-        if "mcpServers" not in config:
-            config["mcpServers"] = {}
-            is_changed = True
-
-        if name in config["mcpServers"]:
-            existing_settings = config["mcpServers"][name]
-            if existing_settings == settings:
-                pass
+        config = cdc.read()
+        flag_list = list()
+        for mcp_enum in cls:
+            print(mcp_enum, mcp_enum.name, mcp_enum in wanted_mcps)
+            if mcp_enum in wanted_mcps:
+                print(f"Enabling MCP: {mcp_enum.value.name}")  # for debug only
+                flag = enable_mcp_server(
+                    config,
+                    name=mcp_enum.value.name,
+                    settings=mcp_enum.value.settings,
+                )
             else:
-                config["mcpServers"][name] = settings
-                is_changed = True
-        else:
-            config["mcpServers"][name] = settings
-            is_changed = True
+                print(f"Disabling MCP: {mcp_enum.value.name}")  # for debug only
+                flag = disable_mcp_server(
+                    config,
+                    name=mcp_enum.value.name,
+                )
 
-        if is_changed:
-            self.write(config)
+            flag_list.append(flag)
+            print(config)
 
-    def del_mcp_server(self, name: str):
-        """
-        Remove an MCP server from the configuration.
-        This is an idempotent operation - no error if the server doesn't exist.
-        """
-        config = self.read()
-        is_changed = False
-        
-        if "mcpServers" in config and name in config["mcpServers"]:
-            del config["mcpServers"][name]
-            is_changed = True
-            
-            # Remove empty mcpServers key to keep config clean
-            if not config["mcpServers"]:
-                del config["mcpServers"]
-        
-        if is_changed:
-            self.write(config)
+        if any(flag_list):
+            cdc.write(config)
+            return True
+        return False
