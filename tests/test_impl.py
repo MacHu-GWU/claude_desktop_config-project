@@ -9,7 +9,7 @@ path = Path(__file__).absolute().parent / "claude_desktop_config.json"
 class TestClaudeDesktopConfig:
     def test_put_mcp_server(self):
         cdc = ClaudeDesktopConfig(path=path)
-        
+
         # Test 1: Add server when mcpServers doesn't exist
         cdc.write({})
         cdc.put_mcp_server(
@@ -28,7 +28,7 @@ class TestClaudeDesktopConfig:
                 }
             }
         }
-        
+
         # Test 2: Add server when mcpServers already exists
         cdc.write({"mcpServers": {}})
         cdc.put_mcp_server(
@@ -47,16 +47,18 @@ class TestClaudeDesktopConfig:
                 }
             }
         }
-        
+
         # Test 3: Update existing server with different settings
-        cdc.write({
-            "mcpServers": {
-                "existing_server": {
-                    "command": "old_command",
-                    "args": ["old_arg"],
+        cdc.write(
+            {
+                "mcpServers": {
+                    "existing_server": {
+                        "command": "old_command",
+                        "args": ["old_arg"],
+                    }
                 }
             }
-        })
+        )
         cdc.put_mcp_server(
             name="existing_server",
             settings={
@@ -73,7 +75,7 @@ class TestClaudeDesktopConfig:
                 }
             }
         }
-        
+
         # Test 4: No change when settings are identical
         initial_config = {
             "mcpServers": {
@@ -84,10 +86,10 @@ class TestClaudeDesktopConfig:
             }
         }
         cdc.write(initial_config)
-        
+
         # Read file before put_mcp_server to track if write was called
         original_content = path.read_text()
-        
+
         cdc.put_mcp_server(
             name="unchanged_server",
             settings={
@@ -95,14 +97,96 @@ class TestClaudeDesktopConfig:
                 "args": ["same_arg"],
             },
         )
-        
+
         # Verify file wasn't written (content unchanged)
         new_content = path.read_text()
         assert original_content == new_content
-        
+
         # Verify config is still the same
         config = cdc.read()
         assert config == initial_config
+
+    def test_del_mcp_server(self):
+        cdc = ClaudeDesktopConfig(path=path)
+
+        # Test 1: Delete server when it exists
+        cdc.write(
+            {
+                "mcpServers": {
+                    "server_to_delete": {
+                        "command": "npx",
+                        "args": ["server"],
+                    },
+                    "server_to_keep": {
+                        "command": "node",
+                        "args": ["app.js"],
+                    },
+                }
+            }
+        )
+        cdc.del_mcp_server("server_to_delete")
+        config = cdc.read()
+        assert config == {
+            "mcpServers": {
+                "server_to_keep": {
+                    "command": "node",
+                    "args": ["app.js"],
+                }
+            }
+        }
+
+        # Test 2: Delete last server (should remove mcpServers key)
+        cdc.write(
+            {
+                "mcpServers": {
+                    "last_server": {
+                        "command": "python",
+                        "args": ["server.py"],
+                    }
+                },
+                "otherConfig": "value",
+            }
+        )
+        cdc.del_mcp_server("last_server")
+        config = cdc.read()
+        assert config == {"otherConfig": "value"}
+        assert "mcpServers" not in config
+
+        # Test 3: Delete non-existent server (idempotent - no error)
+        initial_config = {
+            "mcpServers": {
+                "existing_server": {
+                    "command": "npm",
+                    "args": ["start"],
+                }
+            }
+        }
+        cdc.write(initial_config)
+        original_content = path.read_text()
+
+        cdc.del_mcp_server("non_existent_server")
+
+        # Verify file wasn't written
+        new_content = path.read_text()
+        assert original_content == new_content
+
+        # Verify config unchanged
+        config = cdc.read()
+        assert config == initial_config
+
+        # Test 4: Delete when mcpServers doesn't exist (idempotent)
+        cdc.write({"otherConfig": "value"})
+        original_content = path.read_text()
+
+        cdc.del_mcp_server("any_server")
+
+        # Verify file wasn't written
+        new_content = path.read_text()
+        assert original_content == new_content
+
+        # Verify config unchanged
+        config = cdc.read()
+        assert config == {"otherConfig": "value"}
 
 
 if __name__ == "__main__":
@@ -111,5 +195,5 @@ if __name__ == "__main__":
     run_cov_test(
         __file__,
         "claude_desktop_config.impl",
-        preview=True,
+        preview=False,
     )

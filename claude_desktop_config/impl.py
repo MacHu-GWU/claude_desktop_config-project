@@ -83,6 +83,7 @@ class ClaudeDesktopConfig:
         """
         config = self.read()
         is_changed = False
+
         if "mcpServers" not in config:
             config["mcpServers"] = {}
             is_changed = True
@@ -98,5 +99,24 @@ class ClaudeDesktopConfig:
             config["mcpServers"][name] = settings
             is_changed = True
 
+        if is_changed:
+            self.write(config)
+
+    def del_mcp_server(self, name: str):
+        """
+        Remove an MCP server from the configuration.
+        This is an idempotent operation - no error if the server doesn't exist.
+        """
+        config = self.read()
+        is_changed = False
+        
+        if "mcpServers" in config and name in config["mcpServers"]:
+            del config["mcpServers"][name]
+            is_changed = True
+            
+            # Remove empty mcpServers key to keep config clean
+            if not config["mcpServers"]:
+                del config["mcpServers"]
+        
         if is_changed:
             self.write(config)
