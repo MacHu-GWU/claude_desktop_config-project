@@ -39,7 +39,7 @@ def get_default_claude_desktop_config_path() -> Path:  # pragma: no cover
                 / "claude_desktop_config.json"
             )
     elif IS_LINUX:  # pragma: no cover
-        raise OSError("Claude Desktop is not supported on Linux yet")
+        return Path.home() / ".config" / "Claude" / "claude_desktop_config.json"
     else:  # pragma: no cover
         raise OSError("Unsupported operating system")
 
