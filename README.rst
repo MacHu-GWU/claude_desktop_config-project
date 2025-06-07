@@ -55,30 +55,80 @@ Welcome to ``claude_desktop_config`` Documentation
 
 Usage Examples
 ------------------------------------------------------------------------------
-**Add or Update an MCP Server**
+**Functional API - Add or Update an MCP Server**
 
 .. code-block:: python
 
-    from claude_desktop_config.api import ClaudeDesktopConfig
+    from claude_desktop_config.api import ClaudeDesktopConfig, enable_mcp_server
 
     # Create config instance (auto-detects platform-specific path)
-    config = ClaudeDesktopConfig()
-
-    # Add a new MCP server
-    config.put_mcp_server(
+    cdc = ClaudeDesktopConfig()
+    
+    # Read current configuration
+    config = cdc.read()
+    
+    # Add or update an MCP server
+    changed = enable_mcp_server(
+        config,
         name="my-knowledge-base",
         settings={
             "command": "npx",
             "args": ["-y", "@modelcontextprotocol/server-memory"]
         }
     )
+    
+    # Write back if changed
+    if changed:
+        cdc.write(config)
 
-**Remove an MCP Server**
+**Functional API - Remove an MCP Server**
 
 .. code-block:: python
 
+    from claude_desktop_config.api import ClaudeDesktopConfig, disable_mcp_server
+
+    cdc = ClaudeDesktopConfig()
+    config = cdc.read()
+    
     # Remove a server (idempotent - no error if doesn't exist)
-    config.del_mcp_server("my-knowledge-base")
+    if disable_mcp_server(config, "my-knowledge-base"):
+        cdc.write(config)
+
+**Enum API - Declarative Server Management**
+
+.. code-block:: python
+
+    from claude_desktop_config.api import ClaudeDesktopConfig, BaseMcpEnum, Mcp
+    
+    # Define your MCP servers as an enum
+    class MyMcpServers(BaseMcpEnum):
+        filesystem = Mcp(
+            name="filesystem",
+            settings={
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/documents"]
+            }
+        )
+        github = Mcp(
+            name="github", 
+            settings={
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-github"]
+            }
+        )
+        memory = Mcp(
+            name="memory",
+            settings={
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-memory"]
+            }
+        )
+    
+    # Apply desired state - this will:
+    # 1. Enable filesystem and github servers
+    # 2. Disable memory server (if it exists)
+    cdc = ClaudeDesktopConfig()
+    MyMcpServers.apply([MyMcpServers.filesystem, MyMcpServers.github], cdc)
 
 **Work with Custom Config Path**
 
@@ -87,16 +137,24 @@ Usage Examples
     from pathlib import Path
 
     # Use a custom configuration file path
-    config = ClaudeDesktopConfig(path=Path("/custom/path/config.json"))
+    cdc = ClaudeDesktopConfig(path=Path("/custom/path/config.json"))
 
     # Read current configuration
-    current_config = config.read()
+    current_config = cdc.read()
     print(current_config)
 
-**Manage Multiple Servers**
+**Batch Operations with Functional API**
 
 .. code-block:: python
 
+    from claude_desktop_config.api import ClaudeDesktopConfig, enable_mcp_server, disable_mcp_server
+
+    cdc = ClaudeDesktopConfig()
+    config = cdc.read()
+    
+    # Track if any changes were made
+    changed = False
+    
     # Add multiple MCP servers
     servers = {
         "filesystem": {
@@ -108,9 +166,17 @@ Usage Examples
             "args": ["-y", "@modelcontextprotocol/server-github"]
         }
     }
-
+    
     for name, settings in servers.items():
-        config.put_mcp_server(name, settings)
+        changed |= enable_mcp_server(config, name, settings)
+    
+    # Remove unwanted servers
+    for name in ["old-server", "deprecated-server"]:
+        changed |= disable_mcp_server(config, name)
+    
+    # Write once if any changes were made
+    if changed:
+        cdc.write(config)
 
 
 .. _install:
