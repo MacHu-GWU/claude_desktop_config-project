@@ -50,7 +50,67 @@ Welcome to ``claude_desktop_config`` Documentation
 .. image:: https://claude-desktop-config.readthedocs.io/en/latest/_static/claude_desktop_config-logo.png
     :target: https://claude-desktop-config.readthedocs.io/en/latest/
 
-This is a project allows to manage ``claude_desktop_config.json`` file programmatically.
+``claude_desktop_config`` is a Python library for programmatically managing Claude Desktop's MCP (Model Context Protocol) server configurations. It provides a simple, Pythonic interface to add, update, and remove MCP servers in the ``claude_desktop_config.json`` file without manually editing JSON. The library handles platform-specific configuration paths automatically and ensures safe, atomic updates to maintain configuration integrity.
+
+
+Usage Examples
+------------------------------------------------------------------------------
+**Add or Update an MCP Server**
+
+.. code-block:: python
+
+    from claude_desktop_config.api import ClaudeDesktopConfig
+
+    # Create config instance (auto-detects platform-specific path)
+    config = ClaudeDesktopConfig()
+
+    # Add a new MCP server
+    config.put_mcp_server(
+        name="my-knowledge-base",
+        settings={
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-memory"]
+        }
+    )
+
+**Remove an MCP Server**
+
+.. code-block:: python
+
+    # Remove a server (idempotent - no error if doesn't exist)
+    config.del_mcp_server("my-knowledge-base")
+
+**Work with Custom Config Path**
+
+.. code-block:: python
+
+    from pathlib import Path
+
+    # Use a custom configuration file path
+    config = ClaudeDesktopConfig(path=Path("/custom/path/config.json"))
+
+    # Read current configuration
+    current_config = config.read()
+    print(current_config)
+
+**Manage Multiple Servers**
+
+.. code-block:: python
+
+    # Add multiple MCP servers
+    servers = {
+        "filesystem": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/documents"]
+        },
+        "github": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-github"]
+        }
+    }
+
+    for name, settings in servers.items():
+        config.put_mcp_server(name, settings)
 
 
 .. _install:

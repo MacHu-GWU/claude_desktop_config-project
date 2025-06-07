@@ -5,6 +5,7 @@ from claude_desktop_config import api
 
 def test():
     _ = api
+    _ = api.ClaudeDesktopConfig
 
 
 if __name__ == "__main__":
